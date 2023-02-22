@@ -47,6 +47,23 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
       digitalWrite(REN_PIN,LOW);
 }
 
+// 1i)
+uint8_t readCols(){
+  uint32_t c0  = digitalRead(C0_PIN);
+  uint32_t c1  = digitalRead(C1_PIN) << 1;
+  uint32_t c2  = digitalRead(C2_PIN) << 2;
+  uint32_t c3  = digitalRead(C3_PIN) << 3;
+  return c0 + c1 + c2 + c3;
+}
+// 2i
+uint8_t setRow(uint8_t rowIdx){
+  digitalWrite(dis)
+  digitalWrite(RA0_PIN, rowIdx & 0b001);
+  digitalWrite(RA1_PIN, rowIdx & 0b010) ;
+  digitalWrite(RA2_PIN, rowIdx & 0b100);
+  digitalWrite(REN_PIN, HIGH);
+}
+
 void setup() {
   // put your setup code here, to run once:
 
@@ -90,9 +107,10 @@ void loop() {
     //Update display
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-    u8g2.drawStr(2,10,"Helllo World!");  // write something to the internal memory
+    u8g2.drawStr(2,10,"Helllo World:)");  // write something to the internal memory
     u8g2.setCursor(2,20);
-    u8g2.print(count++);
+    uint8_t keys = readCols();
+    u8g2.print(keys,HEX); 
     u8g2.sendBuffer();          // transfer internal memory to the display
 
     //Toggle LED
