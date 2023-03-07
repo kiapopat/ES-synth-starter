@@ -3,7 +3,9 @@
 
 //Constants
   const uint32_t interval = 100; //Display update interval
-
+  const char* notes[] = {"C","C#" , "D", "D#", "E", "F", "G",  "G#", "A","A#", "B" };
+  const uint32_t stepSizes [] = { 261,277,294,311,330, 350,370, 392,415, 440, 466,494 }; // double check this
+  volatile uint32_t currentStepSize;
 //Pin definitions
   //Row select and enable
   const int RA0_PIN = D3;
@@ -56,12 +58,18 @@ uint8_t readCols(){
   return c0 + c1 + c2 + c3;
 }
 // 2i
-uint8_t setRow(uint8_t rowIdx){
-  digitalWrite(dis)
+void setRow(uint8_t rowIdx){
+  digitalWrite(REN_PIN, LOW);
   digitalWrite(RA0_PIN, rowIdx & 0b001);
   digitalWrite(RA1_PIN, rowIdx & 0b010) ;
   digitalWrite(RA2_PIN, rowIdx & 0b100);
   digitalWrite(REN_PIN, HIGH);
+}
+static uint32_t phaseAcc = 0;
+void sampleISR() {
+  phaseAcc += currentStepSize;
+  int32_t Vout = (phaseAcc >> 24) - 128;
+  analogWrite(OUTR_PIN, Vout + 128);
 }
 
 void setup() {
@@ -94,13 +102,18 @@ void setup() {
   //Initialise UART
   Serial.begin(9600);
   Serial.println("Hello World");
+  TIM_TypeDef *Instance = TIM1;
+  HardwareTimer *sampleTimer = new HardwareTimer(Instance);
+  sampleTimer->setOverflow(22000, HERTZ_FORMAT);
+  sampleTimer->attachInterrupt(sampleISR);
+  sampleTimer->resume();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   static uint32_t next = millis();
   static uint32_t count = 0;
-
+  
   if (millis() > next) {
     next += interval;
 
@@ -109,8 +122,36 @@ void loop() {
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
     u8g2.drawStr(2,10,"Helllo World:)");  // write something to the internal memory
     u8g2.setCursor(2,20);
-    uint8_t keys = readCols();
-    u8g2.print(keys,HEX); 
+    uint8_t keyArray[7];
+    for (uint8_t i = 0; i <= 2; i++)
+    {
+      setRow(i);
+      delayMicroseconds(3);
+      keyArray[i] = readCols();
+    }
+
+  
+    u8g2.print(keyArray[0],HEX); 
+    u8g2.setCursor(10,20);
+
+    u8g2.print(keyArray[1],HEX); 
+    u8g2.setCursor(20,20);
+    u8g2.print(keyArray[2],HEX); 
+
+    //3.2
+    for (uint8_t i = 0; i < 2; i++)
+    {
+      for (uint8_t j = 0; j <=4; j++)
+      {
+        if((keyArray[i] & (1 >> j)) == 0 ){
+          u8g2.drawStr(30, 20, notes[i*4 +j]);
+          currentStepSize = stepSizes[i*4+j];
+          goto send;
+        }
+      }
+      
+    }
+    send:
     u8g2.sendBuffer();          // transfer internal memory to the display
 
     //Toggle LED
